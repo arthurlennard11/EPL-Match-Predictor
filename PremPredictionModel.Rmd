@@ -1,0 +1,910 @@
+---
+title: "Final Paper"
+author: "STOR 320.(02) Group STOR 320.02 Group 1"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+
+library(readr)
+library(modelr)
+library(broom)
+library(purrr)
+library(ordinal)
+library(MASS)
+library(stringr)
+library(knitr)
+library(kableExtra)
+library(car)
+library(xtable)
+library(Stat2Data)
+
+#install.packages("rmarkdown")
+#install.packages("tinytex")
+#tinytex::install_tinytex()  # Lightweight LaTeX distribution
+```
+
+# INTRODUCTION
+```{r, include=TRUE, warning=FALSE}
+
+                                        ##Necessary!##
+
+epl = readr::read_csv("/Users/arthurlennard/Desktop/epl2020.csv")
+EPL = epl %>%
+    dplyr::select(c(-1)) %>%
+  rename(
+    `Home/Away` = h_a,
+    `NonPenalty xG` = npxG,
+    `NonPenalty xGA` = npxGA,
+    `Number of plays in opponent final third` = deep,
+    `Number of plays allowed in final third` = deep_allowed,
+    conceded = missed,
+    `Expected Points` = xpts,
+    Points = pts,
+    Team = teamId,
+    `Pressing Play For` = ppda_cal,
+    `Pressing Play Against` = allowed_ppda,
+    `Total Points` = tot_points,
+    Matchweek = round,
+    `Total Goals` = tot_goal,
+    `Total Conceded` = tot_con,
+    `Referee` = Referee.x,
+    `Home Team Shots` = HS.x,
+    `Home Shots Target` = HST.x,
+    `Home Fouls` = HF.x,
+    `Home Corners` = HC.x,
+    `Home Yellow` = HY.x,
+    `Home Red` = HR.x,
+    `Away Team Shots` = AS.x,
+    `Away Shots Target` = AST.x,
+    `Away Fouls` = AF.x,
+    `Away Corners` = AC.x,
+    `Away Yellow` = AY.x,
+    `Away Red` = AR.x,
+    `Home Shot Accuracy` = HtrgPerc,
+    `Away Shot Accuracy` = AtrgPerc,
+    `Match Day` = matchDay
+  ) %>%
+  dplyr::select(Team, everything())
+
+EPL2 = EPL %>%
+  mutate(`Away Team Shots 2` = `Away Team Shots`,
+         `Away Shots Target 2` = `Away Shots Target`,
+         `Away Fouls 2` = `Away Fouls`,
+         `Away Corners 2` = `Away Corners`,
+         `Away Yellow 2` = `Away Yellow`,
+         `Away Red 2` = `Away Red`)
+EPL3 = EPL2
+EPL3$`Away Team Shots` = ifelse(EPL3$`Home/Away`=="h",EPL3$`Home Team Shots`,EPL3$`Away Team Shots`)
+EPL3$`Away Shots Target` = ifelse(EPL3$`Home/Away`=="h",EPL3$`Home Shots Target`,EPL3$`Away Shots Target`)
+EPL3$`Away Fouls` = ifelse(EPL3$`Home/Away`=="h",EPL3$`Home Fouls`,EPL3$`Away Fouls`)
+EPL3$`Away Corners` = ifelse(EPL3$`Home/Away`=="h",EPL3$`Home Corners`,EPL3$`Away Corners`)
+EPL3$`Away Yellow` = ifelse(EPL3$`Home/Away`=="h",EPL3$`Home Yellow`,EPL3$`Away Yellow`)
+EPL3$`Away Red` = ifelse(EPL3$`Home/Away`=="h",EPL3$`Home Red`,EPL3$`Away Red`)
+
+EPL4 = EPL3
+
+EPL4$`Home Team Shots` = ifelse(EPL4$`Home/Away`=="h",EPL4$`Away Team Shots 2`,EPL4$`Home Team Shots`)
+EPL4$`Home Shots Target` = ifelse(EPL4$`Home/Away`=="h",EPL4$`Away Shots Target 2`,EPL4$`Home Shots Target`)
+EPL4$`Home Fouls` = ifelse(EPL4$`Home/Away`=="h",EPL4$`Away Fouls 2`,EPL4$`Home Fouls`)
+EPL4$`Home Corners` = ifelse(EPL4$`Home/Away`=="h",EPL4$`Away Corners 2`,EPL4$`Home Corners`)
+EPL4$`Home Yellow` = ifelse(EPL4$`Home/Away`=="h",EPL4$`Away Yellow 2`,EPL4$`Home Yellow`)
+EPL4$`Home Red` = ifelse(EPL4$`Home/Away`=="h",EPL4$`Away Red 2`,EPL4$`Home Red`)
+
+EPL5 = EPL4 %>%
+  rename(`Shots` = `Away Team Shots`,
+         `Shots on Target` = `Away Shots Target`,
+         `Fouls` = `Away Fouls`,
+          `Corners` = `Away Corners`,
+          `Yellows` = `Away Yellow`,
+          `Reds` = `Away Red`,
+          `Shots Against` = `Home Team Shots`,
+          `Shots on Target Against` = `Home Shots Target`,
+          `Fouls Against` = `Home Fouls`,
+          `Corners Against` = `Home Corners`,
+          `Yellows Against` = `Home Yellow`,
+          `Reds Against` = `Home Red`) %>%
+  dplyr::select(-c(45:50))
+EPL6 = EPL5 %>%
+  mutate(`B365H.x2` = `B365H.x`,
+         `B365A.x2` = `B365A.x`)
+EPL7 = EPL6
+EPL7$`B365A.x` = ifelse(EPL7$`Home/Away`=="h",EPL7$`B365H.x`,EPL7$`B365A.x`) 
+EPL8 = EPL7
+EPL8$`B365H.x` = ifelse(EPL8$`Home/Away`=="h",EPL8$`B365A.x2`,EPL8$`B365H.x`)
+EPL9 = EPL8 %>%
+  dplyr::select(-c(45:46)) %>%
+  rename(
+    "OddsOfLoss" = "B365H.x",
+    "OddsOfWin" = "B365A.x"
+  )
+#EPL9
+
+```
+
+```{r, include=TRUE, echo=TRUE}
+EPL10 = EPL9
+EPL10$Opp = NA
+EPL10 = dplyr::select(EPL10, "Team", "Opp", everything())
+for(i in 1:nrow(EPL10)){
+  for(j in 1:nrow(EPL10)){
+    if(EPL10$xGA[i]==EPL10$xG[j]){
+      EPL10$Opp[i]=EPL10$Team[j]
+      break
+    }
+  }
+}
+```
+
+```{r, include=TRUE, echo=TRUE}
+EPL10$cumxG = NA
+EPL10 = EPL10 %>%
+  arrange(Team, Matchweek) %>%
+  group_by(Team) %>%
+  mutate(cumxG = cumsum(lag(xG, default = 0)))
+
+EPL10$cumxGA = NA
+EPL10 = EPL10 %>%
+  arrange(Team, Matchweek) %>%
+  group_by(Team) %>%
+  mutate(cumxGA = cumsum(lag(xGA, default = 0)))
+
+EPL10$cumOppxG = NA
+EPL10 = EPL10 %>%
+  arrange(Opp, Matchweek) %>%
+  group_by(Opp) %>%
+  mutate(cumOppxG = cumsum(lag(xGA, default = 0)))
+
+EPL10$cumOppxGA = NA
+EPL10 = EPL10 %>%
+  arrange(Opp, Matchweek) %>%
+  group_by(Opp) %>%
+  mutate(cumOppxGA = cumsum(lag(xG, default = 0)))
+
+EPL10$cumxGDiff = NA
+EPL10$cumxGDiff =  EPL10$cumxG - EPL10$cumxGA
+
+EPL10$cumOppxGDiff = NA
+EPL10$cumOppxGDiff =  EPL10$cumOppxG - EPL10$cumOppxGA
+
+EPL10 %>%
+  arrange(Team, Matchweek)
+
+```
+
+```{r, include=TRUE, echo=TRUE}
+EPL11 = EPL10 %>%
+  arrange(Team, Matchweek) %>%
+  group_by(Team) %>%
+  mutate(MEANcumxG = cummean(lag(xG, default=0)))
+EPL11 = EPL11 %>%
+  arrange(Team, Matchweek) %>%
+  group_by(Team) %>%
+  mutate(MEANcumxGA = cummean(lag(xGA, default=0)))
+
+EPL11 = EPL11 %>%
+  arrange(Opp, Matchweek) %>%
+  group_by(Opp) %>%
+  mutate(MEANcumOppxG = cummean(lag(xGA, default=0)))
+EPL11 = EPL11 %>%
+  arrange(Opp, Matchweek) %>%
+  group_by(Opp) %>%
+  mutate(MEANcumOppxGA = cummean(lag(xG, default=0)))
+```
+
+```{r, include=TRUE, echo=TRUE}
+EPL12 = EPL11
+
+EPL12$Fac_Points = NULL
+EPL12$Fac_Points = as.factor(EPL12$Points)
+
+#EPL12
+
+ordinal_mod1 = clm(Fac_Points~MEANcumxG + MEANcumOppxG + MEANcumxGA + MEANcumOppxGA, data=EPL12)
+summary(ordinal_mod1)
+
+set.seed(11)
+EPL12cv=EPL12 %>% crossv_kfold(30)
+
+train.model.func=function(data){
+  ordinal_mod3 = polr(Fac_Points ~ MEANcumxG + MEANcumOppxG + MEANcumxGA + MEANcumOppxGA, data=data, Hess=TRUE)
+  return(ordinal_mod3)
+}
+
+EPL12cv2=EPL12cv %>% 
+       mutate(tr.model=map(train,train.model.func))
+
+EPL12cv2Predict = EPL12cv2 %>% 
+          mutate(predict=map2(test,tr.model,~augment(.y,newdata=.x))) %>%
+          dplyr::select(predict) %>%
+          unnest()
+
+table2 = table(EPL12cv2Predict$.fitted, EPL12cv2Predict$Fac_Points)
+```
+
+```{r, include=TRUE, echo=TRUE}
+set.seed(11)
+EPL12cvInt=EPL12 %>% crossv_kfold(30)
+
+train.model.func.int=function(data){
+  ordinal_mod3 = polr(Fac_Points ~ MEANcumxG * MEANcumOppxG * MEANcumxGA * MEANcumOppxGA, data=data, Hess=TRUE)
+  return(ordinal_mod3)
+}
+
+EPL12cv2Int=EPL12cvInt %>% 
+       mutate(tr.model=map(train,train.model.func.int))
+
+EPL12cv2PredictInt = EPL12cv2Int %>% 
+          mutate(predict=map2(test,tr.model,~augment(.y,newdata=.x))) %>%
+          dplyr::select(predict) %>%
+          unnest()
+
+table3 = table(EPL12cv2PredictInt$.fitted, EPL12cv2PredictInt$Fac_Points)
+```
+
+```{r, include=TRUE, echo=TRUE}
+EPL13 = EPL12 %>%
+  filter(`Home/Away`=="h")
+```
+
+```{r, include=TRUE, echo=TRUE}
+EPL13.5 = EPL13 %>%
+  filter(Matchweek!=1)
+
+set.seed(13)
+EPL13cvInt=EPL13 %>% crossv_kfold(30)
+
+train.model.func.int=function(data){
+  ordinal_mod3 = polr(Fac_Points ~ MEANcumxG + MEANcumOppxG + MEANcumxGA + MEANcumOppxGA, data=data, Hess=TRUE)
+  return(ordinal_mod3)
+}
+
+EPL13cv2Int=EPL13cvInt %>% 
+       mutate(tr.model=map(train,train.model.func.int))
+
+EPL13cv2PredictInt = EPL13cv2Int %>% 
+          mutate(predict=map2(test,tr.model,~augment(.y,newdata=.x))) %>%
+          dplyr::select(predict) %>%
+          unnest()
+
+table4 = table(EPL13cv2PredictInt$.fitted, EPL13cv2PredictInt$Fac_Points)
+```
+
+```{r, include=TRUE, echo=TRUE}
+ordinal_mod4 = polr(Fac_Points ~ MEANcumxG + MEANcumOppxG + MEANcumxGA + MEANcumOppxGA, data=EPL13, Hess=TRUE)
+
+points13 = EPL13$Fac_Points
+
+predvec = c(predict(ordinal_mod4))
+
+vector = c(exp(ordinal_mod4$lp)/(1+exp(ordinal_mod4$lp)))
+
+arthur = cbind(points13, predvec, vector)
+
+arthur.df = as.data.frame(arthur)
+
+arthur.df %>%
+  group_by(points13) %>%
+  summarize(means = mean(vector),
+            min = min(vector),
+            median = median(vector),
+            max = max(vector),
+            n = n())
+
+```
+
+```{r, include=TRUE, echo=TRUE}
+arthur.df1 = arthur.df %>%
+  mutate(points13 = stringr::str_replace(points13, "1", "0")) %>%
+  mutate(points13 = stringr::str_replace(points13, "2", "1")) %>%
+  mutate(predvec = stringr::str_replace(predvec, "1", "0"))
+#arthur.df1
+
+model_correct = c(NA,nrow(arthur.df))
+for(i in 1:nrow(arthur.df)){
+  if(arthur.df$points13[i] == arthur.df$predvec[i]){
+    model_correct[i] = 1
+  } else {
+    model_correct[i] = 0
+  }
+}
+
+```
+
+```{r, include=TRUE, echo=TRUE}
+arthur.sum = arthur.df1 %>%
+  group_by(points13) %>%
+  summarize(Means = mean(vector),
+            Min = min(vector),
+            Median = median(vector),
+            Max = max(vector),
+            Count = n(),
+            Q1 = quantile(vector, probs = 0.25),
+            Q3 = quantile(vector, probs = 0.75)) %>%
+  mutate(Means = round(Means, 3),
+         Min = round(Min, 3),
+         Median = round(Median, 3),
+         Max = round(Max, 3),
+         Q1 = round(Q1, 3),
+         Q3 = round(Q3, 3))
+arthur.sum
+
+#draw_above = 0.43
+#win_above = 0.55
+
+draw_above = 0.4247821
+win_above = (0.5151996	+ 0.5677399)/2
+
+arthur.df1 %>%
+  mutate(arthur.model = NA)
+
+for(i in 1:nrow(arthur.df1)){
+  if(arthur.df1$vector[i] >= win_above){
+    arthur.df1$arthur.model[i] = 3
+  } else if(arthur.df1$vector[i] >= draw_above) {
+    arthur.df1$arthur.model[i] = 1
+  } else {
+    arthur.df1$arthur.model[i] = 0
+  }
+}
+
+```
+
+```{r, include=TRUE, echo=TRUE}
+arthur_correct = c(NA,nrow(arthur.df1))
+for(i in 1:nrow(arthur.df1)){
+  if(arthur.df1$points13[i] == arthur.df1$arthur.model[i]){
+    arthur_correct[i] = 1
+  } else {
+    arthur_correct[i] = 0
+  }
+}
+
+mean(arthur_correct)
+a = arthur.df1 %>%
+  group_by(arthur.model) %>%
+  summarize(arthur_count = n())
+b = arthur.df1 %>%
+  group_by(points13) %>%
+  summarize(actual_count = n())
+c = cbind(a, b)
+c = c %>%
+  rename(Result = arthur.model,
+         `Model Predictions` = arthur_count,
+         `True Outcomes` = actual_count) %>%
+  dplyr::select(Result, `Model Predictions`, `True Outcomes`)
+```
+
+```{r, include=TRUE, echo=TRUE}
+Bet = EPL12 %>%
+  mutate(BetPoints = `Match Day`)
+
+Bet$BetPoints <- ifelse(Bet$OddsOfLoss > Bet$OddsOfWin & Bet$B365D.x > Bet$OddsOfWin,3,
+                          ifelse(Bet$OddsOfLoss < Bet$OddsOfWin & Bet$B365D.x > Bet$OddsOfLoss,0,1))
+
+
+BetH = Bet %>%
+  filter(`Home/Away` == "h")
+
+BetPlus = data.frame(
+  Model = EPL13cv2PredictInt$.fitted, 
+  Bet = BetH$BetPoints,
+  Actual = arthur.df1$points13)
+BetPlus %>%
+  filter((Model == Bet) & (Bet == Actual))
+```
+
+```{r, include=TRUE, echo=TRUE}
+bet_correct = c(NA,nrow(Bet))
+for(i in 1:nrow(Bet)){
+  if(Bet$BetPoints[i] == Bet$Points[i]){
+    bet_correct[i] = 1
+  } else {
+   bet_correct[i] = 0
+  }
+}
+
+FavoriteWins = mean(bet_correct)
+```
+
+```{r, include=TRUE, echo=TRUE}
+EPL16 = EPL13 %>%
+  arrange(Team, Matchweek) %>%
+  group_by(Team) %>%
+  mutate(meanPlays = cummean(lag(`Number of plays allowed in final third`, default=0)))
+EPL16 = EPL16 %>%
+  arrange(Team, Matchweek) %>%
+  group_by(Team) %>%
+  mutate(meanxP = cummean(lag(`Expected Points`, default=0)))
+
+EPL16 = EPL16 %>%
+  arrange(Opp, Matchweek) %>%
+  group_by(Opp) %>%
+  mutate(meanOppPlays = cummean(lag(`Number of plays allowed in final third`, default=0)))
+EPL16 = EPL16 %>%
+  arrange(Opp, Matchweek) %>%
+  group_by(Opp) %>%
+  mutate(meanOppxP = cummean(lag(`Expected Points`, default=0)))
+```
+
+```{r, include=TRUE, echo=TRUE}
+set.seed(13)
+EPL16cvInt=EPL16 %>% crossv_kfold(30)
+
+train.model.func.int.5=function(data){
+  ord_mod5 = polr(Fac_Points ~ meanPlays + meanxP + meanOppPlays + meanOppxP, data=data, Hess=TRUE)
+  return(ord_mod5)
+}
+
+EPL16cv2Int=EPL16cvInt %>% 
+       mutate(tr.model=map(train,train.model.func.int.5))
+
+EPL16cv2PredictInt = EPL16cv2Int %>% 
+          mutate(predict=map2(test,tr.model,~augment(.y,newdata=.x))) %>%
+          dplyr::select(predict) %>%
+          unnest()
+
+table7 = table(EPL16cv2PredictInt$.fitted, EPL16cv2PredictInt$Fac_Points)
+```
+
+```{r, include=TRUE, echo=TRUE}
+set.seed(13)
+EPL17cvInt=EPL16 %>% crossv_kfold(30)
+
+train.model.func.int.5=function(data){
+  ord_mod5 = polr(Fac_Points ~ (MEANcumxG * MEANcumOppxGA) + cumxGDiff + (MEANcumxGA * MEANcumOppxG) + cumOppxGDiff, data=data, Hess=TRUE)
+  return(ord_mod5)
+}
+
+EPL17cv2Int=EPL17cvInt %>% 
+       mutate(tr.model=map(train,train.model.func.int.5))
+
+EPL17cv2PredictInt = EPL17cv2Int %>% 
+          mutate(predict=map2(test,tr.model,~augment(.y,newdata=.x))) %>%
+          dplyr::select(predict) %>%
+          unnest()
+
+table8 = table(EPL17cv2PredictInt$.fitted, EPL17cv2PredictInt$Fac_Points)
+```
+
+```{r, include=TRUE, echo=TRUE}
+set.seed(13)
+EPL18cvInt=EPL16 %>% crossv_kfold(30)
+
+train.model.func.int.5=function(data){
+  ord_mod5 = polr(Fac_Points ~ (MEANcumxG * MEANcumOppxGA) + cumxGDiff + (MEANcumxGA * MEANcumOppxG) + cumOppxGDiff + meanPlays + meanxP + meanOppPlays + meanOppxP, data=data, Hess=TRUE)
+  return(ord_mod5)
+}
+
+EPL18cv2Int=EPL18cvInt %>% 
+       mutate(tr.model=map(train,train.model.func.int.5))
+
+EPL18cv2PredictInt = EPL18cv2Int %>% 
+          mutate(predict=map2(test,tr.model,~augment(.y,newdata=.x))) %>%
+          dplyr::select(predict) %>%
+          unnest()
+
+table9 = table(EPL18cv2PredictInt$.fitted, EPL18cv2PredictInt$Fac_Points)
+```
+
+```{r, include=TRUE, echo=TRUE}
+EPL13.5 = EPL13 %>%
+  filter(Matchweek!=1)
+
+set.seed(13)
+EPL19cvInt=EPL13.5 %>% crossv_kfold(30)
+
+train.model.func.int=function(data){
+  ordinal_mod3 = polr(Fac_Points ~ MEANcumxG + MEANcumOppxG + MEANcumxGA + MEANcumOppxGA, data=data, Hess=TRUE)
+  return(ordinal_mod3)
+}
+
+EPL19cv2Int=EPL19cvInt %>% 
+       mutate(tr.model=map(train,train.model.func.int))
+
+EPL19cv2PredictInt = EPL19cv2Int %>% 
+          mutate(predict=map2(test,tr.model,~augment(.y,newdata=.x))) %>%
+          dplyr::select(predict) %>%
+          unnest()
+
+table10 = table(EPL19cv2PredictInt$.fitted, EPL19cv2PredictInt$Fac_Points)
+```
+
+```{r, include=TRUE, echo=TRUE}
+set.seed(13)
+EPL20cvInt=EPL13 %>% crossv_kfold(30)
+
+train.model.func.int=function(data){
+  ordinal_mod3 = polr(Fac_Points ~ cumxG, data=data, Hess=TRUE)
+  return(ordinal_mod3)
+}
+
+EPL20cv2Int=EPL20cvInt %>% 
+       mutate(tr.model=map(train,train.model.func.int))
+
+EPL20cv2PredictInt = EPL20cv2Int %>% 
+          mutate(predict=map2(test,tr.model,~augment(.y,newdata=.x))) %>%
+          dplyr::select(predict) %>%
+          unnest()
+
+table11 = table(EPL20cv2PredictInt$.fitted, EPL20cv2PredictInt$Fac_Points)
+```
+
+```{r, include=TRUE, echo=TRUE}
+#table2
+`Goals/Conceded- all rows` = (table2[1,1] + table2[3,3]) / 576
+#table3
+`Goals/Conceded Interaction- all rows` = (table3[1,1] + table3[3,3]) / 576
+#table4
+`Goals/Conceded- only home rows` = (table4[1,1] + table4[3,3]) / 288
+#table10
+`Goals/Conceded- only home rows- not MW1` = (table10[1,1] + table10[3,3]) / 278
+#table7
+`Plays final 3rd and xPoints` = (table7[1,1] + table7[3,3]) / 288
+#table8
+`Goals/Conceded Interaction w Goal Diff` = (table8[1,1] + table8[3,3]) / 288
+#table9
+`Every Variable` = (table9[1,1] + table9[3,3]) / 288
+#table11
+`Just xG` = (table11[1,1] + table11[3,3]) / 288
+
+Manual_Right = 0.5416667
+`Manual Intervals` = Manual_Right
+
+`Favorite Wins` = FavoriteWins
+```
+
+```{r, include=TRUE, echo=TRUE}
+final_df = data.frame(
+  Model = c("Goals/Conceded - all rows", "Goals/Conceded Interaction - all rows", "Goals/Conceded - only home rows (Model 3)", "Goals/Conceded - only home rows- not MW1", "Plays final 3rd/xPoints", "Goals/Conceded Interaction w/ Goal Diff", "All Variables", "Only xG", "Manual Intervals ", "Favorite Wins Game"), 
+  Accuracy = c((table2[1,1] + table2[3,3]) / 576, (table3[1,1] + table3[3,3]) / 576, (table4[1,1] + table4[3,3]) / 288, (table10[1,1] + table10[3,3]) / 288, (table7[1,1] + table7[3,3]) / 288, (table8[1,1] + table8[3,3]) / 288, (table9[1,1] + table9[3,3]) / 288, (table11[1,1] + table11[3,3]) / 288, Manual_Right, FavoriteWins)
+)
+
+#final_df
+
+final_df1 = final_df %>%
+  arrange(desc(Accuracy))
+```
+
+Football is a sport that has been popularized worldwide through its form of play and unpredictability. In the English Premier League, the highest ranked league in Europe according to their UEFA league coefficient, each game is viewed as a potential upset with an historic number of underdog teams beating the traditional Big Six Clubs. By looking at the data, we identified several variables that could be used to create a holistic prediction of a game result. At first look, one of the measures that stood out to us were the expected variables, such as xG and xGA, which are prediction variables integrated into the table that measured offensive and defensive outcomes. We plotted the expected variables with the game result and found a high correlation between the two, but we believed that there was more to the story. Considering that, another thing we found interesting was the categorical variables; referee, location, time, day, to have an impact on the game. Based on these observations, we wanted to analyze this question: Can we create a variable that is an improvement upon the currently existing expected goals variable and subsequently better at predicting how many goals a team will score?
+
+Each game’s result has an impact on a team’s performance for the season. The Premier League is a long season which can have a team’s chances at the title hampered by individual games. A team’s form, injuries, and scheduling can impact the outcome of a game. Many games that should’ve been won by one team are miraculously won by the other. All of these influence the standings in the table, and also influence the fans who depend on their team. In our exploratory data analysis, our focus was on defensive and offensive actions made by teams and what outcomes those metrics came to. While these metrics are important we also believed that indirect offensive and defensive metrics within the data set had an influence. This led us to become curious about whether there was a way to identify trends that made it easier to predict these results, but we needed a benchmark to compare our success to. Something we haven’t touched on yet is the immense gambling culture surrounding European football and the English Premier League specifically. Placing bets on games is a regular occurance for many fans, as a way to peak their excitement even more. For this reason, and because they were already included in our data set, we were led to ask this question: Can a combination of variables be used to successfully predict the outcome of a game better than the betting odds?
+
+By looking at our analysis, key stakeholders within the Premier League, including coaches, players, directors, and club owners can identify trends on a game-to-game basis to attain desired results through style of play and, by observing trends, construct offensive and defensive philosophies which will help them attain desired results. The constructed models also serve to provide valuable support to consumers, particularly bettors, by enabling them to optimize their bets and enhance their profits. Our analysis constructed models for end of season rankings and game-to-game results, providing insights into the dynamics of the league and aiding in strategic decision-making. This holistic approach to data analysis empowers both teams and consumers, equipping them with the knowledge needed to navigate the unpredictable landscape of football and maximize their chances of success.
+
+# DATA
+Our dataset of interest is the "English Premier League Stats 2019-2020" from Kaggle, a data science site and community containing thousands of datasets covering a wide range of topics. This dataset was put together by Vaastav Anand, a user on GitHub. Basic details like the date, time, and teams playing were taken from the official Premier League website. More advanced statistics, like Expected Goals for/against, teams and players, came from UnderStat.com. The dataset also includes betting odds from Football-Data.co.uk. By combining simple stats with advanced metrics from reliable sources, this "English Premier League Stats 2019-2020" dataset gave us a well-rounded view to understand one of the biggest football leagues better and assess the performance of teams based on underlying analytics.
+
+Each observation in our dataset is based on one game in the 2019-2020 season from one team's perspective. Therefore, there are two observations per game, one for the home team and one for the away team. This is described by the “Home / Away” variable, which corresponds to whether the team was playing at their own field or the opponent’s. There are a total of 576 observations in the dataset; therefore, a total of 288 matches are represented in the dataset, after a completed 28 match weeks. Notably, this season was halted in March 2020 due to the onset of the COVID-19 Pandemic, and our data ends at this point. 
+
+
+```{r, echo=TRUE, include=TRUE}
+EPL12 = EPL12 %>%
+  arrange(Team)
+kblEPL = head(EPL12) %>%
+  dplyr::select(Team, Opp, `Home/Away`, xG, xGA, result, OddsOfWin)
+kblEPL = kable(kblEPL) %>%
+  kable_material(full_width=F, html_font = "Georgia") %>%
+  row_spec(row = 0, background="orange", bold=T, color="black")
+kblEPL
+```
+
+This table showcases a few of the more key variables from the original table 
+
+Since our EDA found that xG and xGA had the strongest correlation with a team's performance over the course of a season, both our questions focused heavily on those two variables. For the first question, however, we also wanted to identify the most useful variables for predicting the result of each game and the number of goals each team is expected to score in each game.  To address the first question, we examined categorical variables, like the referee of the game, the location (home or away), the time of the game, and the day of the week. 
+
+```{r, echo=TRUE, include=TRUE}
+EPL12 %>%
+  group_by(Team) %>%
+  summarize(`Total xG` = sum(xG),
+            `Total xGA` = sum(xGA),
+            `Total Points` = sum(Points)) %>%
+  ggplot() +
+  geom_point(mapping=aes(x=`Total xG`, y=`Total xGA`, size=`Total Points`, colour=`Total Points`)) + 
+  theme_minimal()
+```
+
+This graph demonstrates the strong relationship between xG/xGA and success over the course of the season
+
+
+For the second question, we created several new variables from the ones that came included in the data set. Since in our EDA we found that xG and xGA had the strongest correlation with final position in the table, these new variables were almost all related to these stats. The first of these new variables was cumulative xG. This is the sum of the total xG amassed by a team in all the games prior to the game in that row. This means the first match week displays 0 in this column, but each row after contains the total xG from all previous games. We then created a similar variable for cumulative xGA. Next we did the same thing, but for the opponent of each team. This gives the opponent’s cumulative xG and xGA prior to that game. After that, we took the cumulative mean of each of these new variables as well. We then made cumulative xG difference, which is the cumulative xG minus cumulative xGA for each time. We made these variables because the exploratory data analysis supported that xG was a better overall indicator of team performance and position in the table than other variables, such as shots, pressing ability, or shots on target. Finally, we made cumulative xP (expected points) and cumulative plays in the opponent’s final third for both teams and their opponents. These were done for uniqueness, so there were other metrics to compare the results from the xG and xGA variables to. The second model also required that the points variable was converted into a factor variable.
+
+# RESULTS
+
+```{r, include=FALSE}
+Full <- lm(scored ~ . - `NonPenalty xG` - `Expected Points` - xGA - xG - `NonPenalty xGA` - B365H.x - B365A.x - npxGD - B365D.x, data = EPL5)
+MSE <- (summary(Full)$sigma)^2
+None <- lm(scored ~ 1, data = EPL5)
+step(Full, scale = MSE, trace = FALSE)
+
+mod1 <- lm(formula = scored ~ conceded + result + `Total Points` + `Total Goals` + 
+    `Total Conceded` + `Shots on Target Against` + `Fouls Against` + 
+    `Shots on Target` + Corners, data = EPL5)
+anova(mod1)
+
+EPLsc <- EPL5 %>% mutate(ModelxG = predict(mod1, newdata = EPL5)) %>% summarize(xG, ModelxG, scored, count = row_number())
+EPLsc2 <- EPLsc %>% mutate(xGdiff = scored - xG, ModelxGdiff = scored - ModelxG)
+EPLsc3 <- EPLsc2 %>% mutate(BetterModel = ifelse(abs(xGdiff) > abs(ModelxGdiff), "ModelxGdiffbs", "xGdiff1"))
+count(EPLsc3, BetterModel)
+
+step(None, scope = list(upper = Full), scale = MSE, trace = FALSE)
+
+mod2 <- lm(formula = scored ~ `Shots on Target` + conceded + Corners + 
+    result + `Fouls Against` + `Number of plays in opponent final third` + 
+    `Away Shot Accuracy`, data = EPL5)
+anova(mod2)
+
+EPLsco <- EPL5 %>% mutate(ModelxG = predict(mod2, newdata = EPL5)) %>% summarize(xG, ModelxG, scored, count = row_number())
+EPLsco2 <- EPLsco %>% mutate(xGdiff = scored - xG, ModelxGdiff = scored - ModelxG)
+EPLsco3 <- EPLsco2 %>% mutate(BetterModel = ifelse(abs(xGdiff) > abs(ModelxGdiff), "ModelxGdiffsr", "xGdiff2"))
+count(EPLsco3, BetterModel)
+
+step(None, scope = list(upper = Full), scale = MSE, direction = "forward", trace = FALSE)
+
+mod3 <- lm(formula = scored ~ Points + `Shots on Target` + conceded + 
+    Corners + result + `Fouls Against` + `Number of plays in opponent final third` + 
+    `Away Shot Accuracy`, data = EPL5)
+anova(mod3)
+
+EPLscor <- EPL5 %>% mutate(ModelxG = predict(mod3, newdata = EPL5)) %>% summarize(xG, ModelxG, scored, count = row_number())
+EPLscor2 <- EPLscor %>% mutate(xGdiff = scored - xG, ModelxGdiff = scored - ModelxG)
+EPLscor3 <- EPLscor2 %>% mutate(BetterModel = ifelse(abs(xGdiff) > abs(ModelxGdiff), "ModelxGdifffs", "xGdiff3"))
+count(EPLscor3, BetterModel)
+
+AllData <- rbind.data.frame(count(EPLsc3, BetterModel), count(EPLsco3, BetterModel), count(EPLscor3, BetterModel))
+AllData$BetterModel = factor(AllData$BetterModel, levels = c("ModelxGdiffbs", "xGdiff1", "ModelxGdiffsr", "xGdiff2", "ModelxGdifffs", "xGdiff3"))
+AllData
+```
+
+
+ 
+
+```{r, echo=FALSE, warning=FALSE, include=FALSE}
+ggplot(aes(x = BetterModel, y = n), data = AllData) + geom_bar(stat = "identity", fill="orange") + coord_cartesian(ylim = c(150, 400)) + ggtitle("Figure 1")+ theme_minimal()+labs(y = "Games/Goal Difference")
+
+ggplot(aes(x = count, y = scored), data = EPLsc3) + 
+  geom_point() + 
+  geom_point(aes(y = xG), col = "red") + 
+  geom_point(aes(y = ModelxG), col = "green") + 
+  xlim(0, 20) + 
+  ggtitle("Figure 2") +
+  labs(x = "Game", y = "Goals (Predicted and Actual)")+ theme_minimal()
+```
+
+
+
+```{r, echo=FALSE, warning=FALSE, include=FALSE}
+mod4 <- lm(formula = scored ~ Referee + matchtime + date, data = EPL13)
+test222 = xtable::xtable(anova(mod4), caption = "Table 1")
+#test222
+anovakbl1 = kable(anova(mod4)) %>%
+  kable_material(full_width=F, html_font = "Georgia") %>%
+  column_spec(1, bold=T, background="orange", color="black") %>%
+  row_spec(0, background="orange", color="black")
+anovakbl1
+```
+
+```{r, include=FALSE}
+EPL_C <- EPL5 %>% mutate(ModelxG = predict(mod4, newdata = EPL5)) %>% summarize(xG, ModelxG, scored, count = row_number())
+EPL_C2 <- EPL_C %>% mutate(xGdiff = scored - xG, ModelxGdiff = scored - ModelxG)
+EPL_C3 <- EPL_C2 %>% mutate(BetterModel = ifelse(abs(xGdiff) > abs(ModelxGdiff), "ModelxGdiff", "xGdiff"))
+count(EPL_C3, BetterModel)
+```
+
+
+
+```{r, include=FALSE}
+Full2 <- lm(conceded ~ . - `NonPenalty xG` - `Expected Points` - xGA - xG - `NonPenalty xGA` - B365H.x - B365A.x - npxGD - B365D.x, data = EPL5)
+MSE2 <- (summary(Full2)$sigma)^2
+None2 <- lm(conceded ~ 1, data = EPL5)
+step(Full2, scale = MSE2, trace = FALSE)
+
+mod5 <- lm(formula = conceded ~ scored + result + `Pressing Play For` + 
+    `Total Points` + Matchweek + `Total Conceded` + `Shots on Target Against` + 
+    `Corners Against` + Yellows, data = EPL5)
+anova(mod5)
+
+EPLco <- EPL5 %>% mutate(ModelxGA = predict(mod5, newdata = EPL5)) %>% summarize(xGA, ModelxGA, conceded, count = row_number())
+EPLco2 <- EPLco %>% mutate(xGAdiff = conceded - xGA, ModelxGAdiff = conceded - ModelxGA)
+EPLco3 <- EPLco2 %>% mutate(BetterModel = ifelse(abs(xGAdiff) > abs(ModelxGAdiff), "ModelxGAdiffbs", "xGAdiff1"))
+count(EPLco3, BetterModel)
+
+step(None2, scope = list(upper = Full2), scale = MSE2, trace = FALSE)
+
+mod6 <- lm(formula = conceded ~ result + `Shots on Target Against` + 
+    scored + `Corners Against` + Fouls + `Number of plays allowed in final third` + 
+    `Away Shot Accuracy`, data = EPL5)
+anova(mod6)
+
+EPLcon <- EPL5 %>% mutate(ModelxGA = predict(mod6, newdata = EPL5)) %>% summarize(xGA, ModelxGA, conceded, count = row_number())
+EPLcon2 <- EPLcon %>% mutate(xGAdiff = conceded - xGA, ModelxGAdiff = conceded - ModelxGA)
+EPLcon3 <- EPLcon2 %>% mutate(BetterModel = ifelse(abs(xGAdiff) > abs(ModelxGAdiff), "ModelxGAdiffsr", "xGAdiff2"))
+count(EPLcon3, BetterModel)
+
+step(None2, scope = list(upper = Full2), scale = MSE2, direction = "forward", trace = FALSE)
+
+mod7 <- lm(formula = conceded ~ result + `Shots on Target Against` + 
+    scored + `Corners Against` + Fouls + `Number of plays allowed in final third` + 
+    `Away Shot Accuracy`, data = EPL5)
+anova(mod7)
+
+EPLconc <- EPL5 %>% mutate(ModelxGA = predict(mod7, newdata = EPL5)) %>% summarize(xGA, ModelxGA, conceded, count = row_number())
+EPLconc2 <- EPLconc %>% mutate(xGAdiff = conceded - xGA, ModelxGAdiff = conceded - ModelxGA)
+EPLconc3 <- EPLconc2 %>% mutate(BetterModel = ifelse(abs(xGAdiff) > abs(ModelxGAdiff), "ModelxGAdifffs", "xGAdiff3"))
+count(EPLconc3, BetterModel)
+
+AllData2 <- rbind.data.frame(count(EPLco3, BetterModel), count(EPLcon3, BetterModel), count(EPLconc3, BetterModel))
+AllData2$BetterModel = factor(AllData2$BetterModel, levels = c("ModelxGAdiffbs", "xGAdiff1", "ModelxGAdiffsr", "xGAdiff2", "ModelxGAdifffs", "xGAdiff3"))
+AllData2
+```
+
+```{r, echo=FALSE, warning=FALSE, include=FALSE}
+ggplot(aes(x = BetterModel, y = n), data = AllData2) + geom_bar(stat = "identity", fill="orange") + coord_cartesian(ylim = c(150, 400)) + ggtitle("Figure 3") + theme_minimal()+labs(y = "Games/Goal Difference")
+
+ggplot(aes(x = count, y = conceded), data = EPLconc3) + geom_point() + geom_point(aes(y = xGA), col = "red") + geom_point(aes(y = ModelxGA), col = "green") + xlim(0, 20) + ggtitle("Figure 4")  +
+  labs(x = "Game", y = "Goals Against (Predicted and Actual)") + theme_minimal()
+```
+
+
+
+```{r,echo=FALSE, warning=FALSE, include=FALSE}
+mod8 <- lm(formula = conceded ~ Referee + matchtime + date, data = EPL13)
+test111 = xtable::xtable(anova(mod8), caption = "Table 2")
+#test111
+anovakbl2 = kable(anova(mod8)) %>%
+  kable_material(full_width=F, html_font = "Georgia") %>%
+  column_spec(1, bold=T, background="orange", color="black") %>%
+  row_spec(0, background="orange", color="black")
+anovakbl2
+```
+
+```{r, include=FALSE}
+EPL_Ca <- EPL5 %>% mutate(ModelxGA = predict(mod8, newdata = EPL5)) %>% summarize(xGA, ModelxGA, conceded, count = row_number())
+EPL_Ca2 <- EPL_Ca %>% mutate(xGAdiff = conceded - xGA, ModelxGAdiff = conceded - ModelxGA)
+EPL_Ca3 <- EPL_Ca2 %>% mutate(BetterModel = ifelse(abs(xGAdiff) > abs(ModelxGAdiff), "ModelxGAdiff", "xGAdiff"))
+count(EPL_Ca3, BetterModel)
+```
+
+
+Question 2:
+After converting the points variable to a factor variable, with levels of 0, 1, and 3, representing losses, draws, and wins respectively (these terms and numbers will be used interchangeably throughout the results section and the tables within it), we created several ordinal regression models using the “polr” function from the “MASS” package to try to predict which outcome a team would achieve based on the inputted variables. The first model we tried was simply the mean cumulative xG + opponent’s mean cumulative xG + mean cumulative xGA + opponent’s mean cumulative xGA. Again, xG and xGA were the variables that were previously found to have the strongest correlation with team performance. After cross validating the data, this model correctly predicted the outcome for each team around 47% of the time. Interestingly, the model did not predict a single draw (which did in fact occur), so it got 0% of the games that ended in draws correctly. The next model had the same variables but instead used the interaction between them, to see if the relationship between the variables was significant. This also resulted in around 47% accuracy, and also did not predict a single draw. After this, we realized that the data had 2 rows for each game, as there was one from each team’s perspective. To avoid counting each game twice and try to solve the draw problem, we split the data into just home games. Now, each game is only represented by one team’s perspective, but their opponent is still taken into account. We ran the first model again but on only the home data (this model stands out and will be referred to as “Model 3” for the remainder of this paper), and got around 52% accuracy, but again, with no draws predicted.
+
+```{r, echo=TRUE, include=TRUE}
+kblt4 = kable(table4)
+kblt4 = kblt4 %>%
+  kable_material(full_width=F, html_font = "Georgia") %>%
+  column_spec(1, bold=T, background="orange", color="black") %>%
+  row_spec(0, background="orange", color="black") 
+kblt4
+```
+The Confusion Matrix for Model 3: Displays accuracy on 45/87 losses, 106/129 wins, and 0/72 draws
+
+
+This was slightly better than before, but still, the model would not predict a single draw. We then removed all the games from the first matchweek, since the model was predicting each of these games with no prior data, and should theoretically give each team a 50% chance of winning, so it wouldn’t be fair to judge the model on how well it did on these games. This did not help the model’s performance however, as the accuracy stayed around 49% for this data. Interestingly though, upon investigation we found that the model did give the home team exactly a 50% chance to win these games from the first week, but still didn’t predict draws for them. The next model was similar to the first one, except this time included the interaction between mean cumulative xG and opponent mean cumulative xGA (and then the opposite of both of those as well) + the cumulative xG diff for the team and for their opponent. The purpose of this was to see if xG and xGA had an underlying relationship with the overall goal difference which might influence the results, but instead we found that this model was roughly 50% accurate and predicted no draws. The next model we tried used the cumulative plays in the final 3rd + opponent cumulative plays in the final 3rd + cumulative xP + opponent cumulative xP. The purpose of using these variables was to try something completely unique and independent from xG to see if it could influence the model and its robust stance on draws. This model’s accuracy was around 48% and, predictably, didn’t predict a single draw. 
+
+While none of these models were strikingly accurate, their success means nothing without comparing it to other rates. When creating a model in which the only predictor variable was cumulative xG, it was ~44% accurate and still didn’t predict draws. Using all the variables that have been mentioned so far in one model results in around 50% accuracy with no draws predicted. 
+
+So how does all of this compare to the thing we set out to beat in the first place- the betting odds? The betting odds were 52.7778% accurate in this data, meaning the team that was favored to win won ~53% of the time. Interestingly though, the betting odds never once pitted a draw as a more likely outcome than either of the teams winning outright. The final model that we tried was a modified version of Model 3, which only included mean cumulative xG and xGA for team and opponent, but with a manual input as well. We selected Model 3 for this process since it was the most accurate out of all the ones we tried, which makes sense, as it is based on xG and xGA, which we already knew were the most closely associated with performance. An ordinal regression model works first by assigning a chance that the highest level of the outcome variable is achieved. After that, it makes intervals that determine which outcome is predicted. If the probability is lower than a certain point, it will predict the lowest level. If it is above that point but below another point, it will predict the next outcome up, and so on. This model assigns a probability for the home team to win the game. If the win probability is above a certain point, the model will say that that team will win. If it is below another point, the model will suggest a loss. Finally, if the chance they win is between these two values, the model should predict a draw. The actual probabilities from Model 3 are displayed below, along with their descriptive statistics. 
+
+```{r, echo=TRUE, include=TRUE}
+ggplot(data=arthur.df) +
+  geom_point(mapping=aes(x=points13, y=vector, alpha=0.05), colour="orange") +
+  scale_x_continuous(breaks = c(1, 2, 3), labels = c("Loss", "Draw", "Win")) + 
+  labs(x = "Actual Result", y = "Model Probability of Win") + 
+  theme_minimal() + 
+  theme(legend.position = "none")
+```
+
+This graph displays the predicted win probabilities from Model 3 compared to the actual results of each of the games
+
+```{r, echo=TRUE, include=TRUE}
+arthur.sum1 = arthur.sum %>%
+  rename(Outcome = points13)
+kblart = kable(arthur.sum1) %>%
+  kable_material(full_width=F, html_font = "Georgia") %>%
+  column_spec(column = 1, background="orange", bold=T, color="black") %>%
+  row_spec(row = 0, background="orange", bold=T, color="black")
+kblart
+```
+This table describes the descriptive statistics of the table of Model 3 probabilities 
+
+Despite there being a full range of predicted probabilities, the model never once decided that a probability warranted a draw, so we wanted to see if the model would be more accurate if we forced it to predict all outcomes. The model does somewhat pick up on when a team has a better chance of winning a game, as seen by the plot of the win probabilities. It has some sense of giving higher chances to teams that actually won, and tends to give teams that actually ended up drawing a higher chance than teams that actually ended up losing. With that in mind, we manually assigned the intervals to try to capture the bulk of each of the true outcomes based on the model’s predictions. We set the new threshold for a draw between 0.424 and 0.541. These numbers equate to the median value of the probabilities for teams that actually lost, and the midway point of the means for teams that actually drew (0.515) and teams that actually won (0.568). This was the combination of intervals that gave the model the closest number of predictions for each outcome to what truly happened. 
+
+```{r, include=TRUE}
+
+
+ordinal_mod4 = polr(Fac_Points ~ MEANcumxG + MEANcumOppxG + MEANcumxGA + MEANcumOppxGA, data=EPL13, Hess=TRUE)
+
+points13 = EPL13$Fac_Points
+
+predvec = c(predict(ordinal_mod4))
+
+vector = c(exp(ordinal_mod4$lp)/(1+exp(ordinal_mod4$lp)))
+
+arthur = cbind(points13, predvec, vector)
+
+arthur.df = as.data.frame(arthur)
+
+arthur.df %>%
+  group_by(points13) %>%
+  summarize(means = mean(vector),
+            min = min(vector),
+            median = median(vector),
+            max = max(vector),
+            n = n())
+
+#draw_above = 0.4247821
+#win_above = (0.5151996	+ 0.5677399)/2
+```
+
+
+```{r, echo=TRUE, include=TRUE}
+ggplot(data=arthur.df) +
+  geom_point(mapping=aes(x=points13, y=vector, alpha=0.05), colour="orange") +
+  scale_x_continuous(breaks = c(1, 2, 3), labels = c("Loss", "Draw", "Win")) + 
+  labs(x = "Actual Result", y = "Model Probability of Win") +
+  theme_minimal() +
+  theme(legend.position = "none") + 
+  geom_hline(yintercept = draw_above, colour="red") + 
+  geom_hline(yintercept = win_above, colour="darkgreen")
+
+```
+
+```{r, echo=TRUE, include=TRUE}
+c1 = kable(c) %>%
+  kable_material(full_width=F, html_font = "Georgia") %>%
+  column_spec(column = 1, background="orange", bold=T, color="black") %>%
+  row_spec(row = 0, background="orange", bold=T, color="black")
+c1
+```
+
+The graph above is the same as the previous one but includes the lines at which the manually made intervals were drawn. A win is represented by all the points above the green line, a loss is represented by all the points below the red line, and a draw is represented by all the points in between the two lines. We then calculated which result correlated with the win probability based on these new intervals, and then compared these new predictions to the true outcomes. These manual intervals resulted in ~54% accuracy, which was the highest of any model, and slightly higher than the betting odds. 
+
+```{r, echo=TRUE, include=TRUE}
+final_df1 %>%
+  ggplot(mapping=aes(x=Accuracy, y = reorder(Model, -Accuracy))) + 
+  geom_col(mapping=aes(fill=Accuracy)) +
+  geom_text(mapping = aes(label = paste0(round(Accuracy*100, 2),"%"), y = reorder(Model, -Accuracy), x=Accuracy), 
+            position = position_stack(vjust = 0.5), color = "black", size = 3) +
+  theme(legend.position = "none") + 
+  labs(y = "Model") + 
+  scale_fill_continuous(low="gold", high="darkorange3") + 
+  theme_minimal()
+```
+
+
+# CONCLUSION
+
+For our question about predicting match outcomes more effectively than the betting odds, we were technically able to design a model that was marginally better than the odds at predicting game outcomes. We say technically because the model was never able to do this on its own, but a combination of model predictions and manual inputs to interpret them did lead to a more accurate prediction process. Ultimately though, there was limited variation between the success of the bulk of the models, regardless of which variables were input into them. 
+
+These results could hold immense implications for both the clubs and fans of the Premier League. In recent years, the use of data analysis in respect to sporting strategy has exploded, and teams are becoming much more interested in using figures and models to help them with their tactics, both on the field and in recruiting. Results such as these could go a long way in helping teams decide how they want to approach certain matches to achieve the best outcome. As for fans, another extremely prominent yet still upcoming aspect of sport is betting. Sports gambling was legalized in the state of North Carolina last month, but has been legal in many other places, including England, for quite a while. With this huge presence of betting, fans are constantly looking for ways to gain an edge on the bookies and improve their odds of making a little money from sports. Whether we think sports gambling is ethical or not is a tale for another time, but what we do know is that this model could help with it. The goal of the first model was to accurately predict goals scored which you are capable of betting on in sports books. Most people would simply look at just xG to help determine if they want to take the over or under of goals scored in a game, however, our model suggests that is not a good idea. The ultimate goal of the model from the second question was to see if we could predict games more accurately than the betting odds, and therefore gain an edge on them. This goal was somewhat achieved, and with a little careful consideration from the user, the model could be used to gamble successfully. Combining the two models together to bet on games would help when betting on the spread. The spread aims to predict the difference between two team prior to the game. For example, a team could be a -1.5 favorite to win the game, meaning that the bettor would have to predict whether or not that team would win by 2 goals, therefore covering the spread.
+
+One trend that would be worth examining further in relation to the second model is how it treats the favorites of each match. This was not included in the results section, but the raw version of Model 3 (without the manual input) only selected the same team to win the game as the betting odds 56% of the time. This is of course keeping in mind that neither Model 3 nor the betting odds ever favored a draw. What this tells us is that the model doesn’t simply predict the better team each time, and still comes up with a nearly identical success rate to the betting odds. One of the reasons that the English Premier League is considered the top league in world football is to do with its relatively unpredictable nature. There’s a much greater sense that anyone can beat anyone else on any given day in the Premier League than there is in other top European football leagues. The model has shown that it can, to some degree, pick up on this trend and identify games that it thinks the underdog has a chance in, and further investigation into why this is the case could prove to be extremely beneficial. Furthermore, only ~27% of the total matches saw the betting odds and the model both predict the favorite, with that team actually winning. What we learn from this is that around half of the model’s correct predictions were underdogs. Since you get a greater prize for correctly predicting an underdog than a favorite, the model might actually prove to have some substantial benefit when used for betting. Again, why this is the case is unclear, and further investigation into both why it is able to predict underdogs and an inquiry into just how much money you could’ve made by using it to gamble would be truly eye-opening. Finally, since the data that we ended up using for the most effective models only included predictions for the home teams, there was clearly going to be a disproportionate amount of wins in the data. Despite this, the model was able to pick up on this trend and consistently predicted more wins than any other outcome, without taking into account which team was at home. Further development of this model could both determine how it was able to do this and also examine if there is a significant interaction between being the home team and the variables we used in the model.
+
+# APPENDIX
+
+Big Six Clubs: Arsenal, Chelsea, Liverpool, Manchester United, Manchester City, and Tottenham Hotspur. These clubs have consistently dominated the league, making the Premier League a spectacle for fans worldwide.
+
+League Coefficient:  a metric that measures the respective strength of each domestic league through its collective continental performances. The coefficient is calculated by working out an average score: dividing the number of points obtained, by the total number of clubs representing an association in that season's club competitions. The resulting figure is then tallied with the results of the previous four seasons to calculate the coefficient.
+
+UEFA: Union of European Football Associations
+
+xG (Expected Goals): A stat that measures the likelihood a player will score from a certain opportunity based on previous shots from similar positions (Ex. a shot with an xG of 0.2 represented a goal coming from 20% of similar shots). Each scoring opportunity is assigned an
+xG and they are typically summed to get a team’s total xG for a match.  
+
+xGA (Expected Goals Against): The total xG a team’s opponent accumulated in a match. 
+
+xP (Expected Points): The likelihood of a team winning a match based on their xG and xGA, converted to points. An xP of 3 would represent a team that is expected to win the game 100% of the time. 
+
+
+
+
+
+
+
+
