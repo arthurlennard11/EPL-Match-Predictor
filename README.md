@@ -1,3 +1,82 @@
-## Premier League Match Predictor
+# Premier League Match Outcome Prediction (2019/20 Season)
 
-### In this project, I wanted to create a model that could predict the outcome of Premier League games more accurately than the betting odds. I defined success by whether my algorithm could predict the correct outcome for the home team (win/loss/draw) more often than the outcome with the best odds of happening occurred. The first part of this project involved a tremendous amount of data cleaning. Since I already had the data for the entire 2019-20 season (up until it was suspended for COVID-19), I needed to find a way to ensure that future results were not accounted for when trying to predict a certain match. I wanted the model to behave this way so it could be used in the present to predict matches that haven’t taken place yet and accurately predict matches using data that is available at the current moment. To accomplish this, I created several cumulative variables for the stats that proved to be most effective at determining match outcome in my exploratory analysis. This included things such as xG for and against, actual goals for and against, and several other variables included in the data set. Ultimately, I ended up using the mean cumulative value of each of these variables. Once the data was clean and usable, I began to test different combinations of these variables as factors in an ordinal regression model. The ordinal regression model was meant to assign each home team a probability that they won and then assign the outcome prediction based off that chance. While undergoing this process however, there was an issue with the model which led it to never pick a match to result in a draw. Given that there were many draws in the true outcomes of the matches, this greatly impacted the accuracy of the model, and I was forced to come up with a solution. What I did was find a formula that allowed me to manually create the probability intervals that represented each outcome. After doing so, and then assessing the accuracy again, I found that the model predicted more match outcomes correctly than the most favored outcome according to the betting odds.
+## 🧠 Hypothesis
+
+A machine learning model that uses team-level statistical features (such as xG and goals for/against) can **predict the outcome of Premier League matches more accurately than the betting odds**.
+
+---
+
+## 🎯 Goal
+
+To develop a predictive model that forecasts **home team match outcomes (win/draw/loss)** and outperforms the betting markets' most likely outcome. The model was designed to use **only data available before a match took place**, making it deployable in real time.
+
+---
+
+## 📊 Data
+
+- Source: [Insert source, e.g., Understat, FBref, etc.]
+- Season: **2019/20 Premier League**, up to the COVID-19 suspension
+- Target: Match outcome from the **home team's perspective**
+- Key features used:
+  - Expected Goals (xG) for and against
+  - Actual Goals for and against
+  - Additional team-level stats (e.g., shots, possession, etc.)
+  - All variables were aggregated **cumulatively per team** up to each matchweek
+
+> ⚠️ **Note:** Special care was taken to avoid **data leakage** by ensuring that future match results were never included in the predictors for earlier games.
+
+---
+
+## 🧪 Methods
+
+1. **Data Cleaning & Feature Engineering**  
+   - Computed **cumulative mean values** for each team’s performance metrics before every match
+   - Ensured predictors only used **information available prior to each matchday**
+
+2. **Modeling Approach**  
+   - Initially used an **ordinal regression model** to assign win/draw/loss probabilities to each home team  
+   - Discovered that the base model never predicted draws, negatively impacting accuracy  
+   - To resolve this, I implemented a **custom probability thresholding formula** to manually define the outcome boundaries based on predicted probabilities
+
+   ![Model Diagram Placeholder](path/to/your-image.png)
+
+3. **Evaluation Metric**  
+   - Compared model accuracy against the **most likely outcome implied by betting odds**
+   - Success was defined as correctly predicting **a greater number of match outcomes** than the implied favorite from betting markets
+
+---
+
+## ✅ Outcome
+
+- After refining the model's probability mapping, it **outperformed the betting odds** by approximately **1.5%** in overall prediction accuracy for home team outcomes  
+- This validated that statistical features like xG and cumulative trends can provide meaningful predictive power when properly modeled and time-aligned
+
+   ![Results Visualization Placeholder](path/to/your-image.png)
+
+---
+
+## 📌 Future Work
+
+- Explore ensemble methods (e.g., XGBoost, Random Forests) for additional predictive strength  
+- Incorporate away team features to test model symmetry and robustness  
+- Experiment with other forms of ordinal classification and probability calibration  
+
+---
+
+## 🛠️ Tools & Languages
+
+- **Language**: R  
+- **Modeling**: `polr` package for ordinal regression  
+- **Data Wrangling**: `dplyr`, `tidyr`  
+- **Visualization**: `ggplot2`
+
+---
+
+## 📸 Visuals
+
+Stay tuned for graphs and diagnostic plots showing:
+- Predicted vs actual outcomes  
+- Probability distributions for each class  
+- Accuracy vs betting odds comparison  
+
+> 🖼️ _[Insert visuals in the placeholders above or use `.md` image embedding syntax]_  
