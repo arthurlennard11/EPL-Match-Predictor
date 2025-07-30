@@ -1,10 +1,5 @@
 # Premier League Match Outcome Prediction (2019/20 Season)
 
-## 🧠 Hypothesis
-
-A machine learning model that uses team-level statistical features (such as xG and goals for/against) can **predict the outcome of Premier League matches more accurately than the betting odds**.
-
----
 
 ## 🎯 Goal
 
@@ -12,9 +7,15 @@ To develop a predictive model that forecasts **home team match outcomes (win/dra
 
 ---
 
+## 🧠 Hypothesis
+
+A machine learning model that uses team-level statistical features (such as xG and goals for/against) can **predict the outcome of Premier League matches more accurately than the betting odds**.
+
+---
+
 ## 📊 Data
 
-- Source: [Insert source, e.g., Understat, FBref, etc.]
+- Source: "Premier League 2019/20" on Kaggle from Vastaav Anand
 - Season: **2019/20 Premier League**, up to the COVID-19 suspension
 - Target: Match outcome from the **home team's perspective**
 - Key features used:
@@ -22,8 +23,6 @@ To develop a predictive model that forecasts **home team match outcomes (win/dra
   - Actual Goals for and against
   - Additional team-level stats (e.g., shots, possession, etc.)
   - All variables were aggregated **cumulatively per team** up to each matchweek
-
-> ⚠️ **Note:** Special care was taken to avoid **data leakage** by ensuring that future match results were never included in the predictors for earlier games.
 
 ---
 
@@ -38,7 +37,7 @@ To develop a predictive model that forecasts **home team match outcomes (win/dra
    - Discovered that the base model never predicted draws, negatively impacting accuracy  
    - To resolve this, I implemented a **custom probability thresholding formula** to manually define the outcome boundaries based on predicted probabilities
 
-   ![Model Diagram Placeholder](path/to/your-image.png)
+   ![Intervals](Visuals/Custom-Intervals.png)
 
 3. **Evaluation Metric**  
    - Compared model accuracy against the **most likely outcome implied by betting odds**
@@ -51,7 +50,7 @@ To develop a predictive model that forecasts **home team match outcomes (win/dra
 - After refining the model's probability mapping, it **outperformed the betting odds** by approximately **1.5%** in overall prediction accuracy for home team outcomes  
 - This validated that statistical features like xG and cumulative trends can provide meaningful predictive power when properly modeled and time-aligned
 
-   ![Results Visualization Placeholder](path/to/your-image.png)
+   ![Results](Visuals/Results.png)
 
 ---
 
@@ -74,9 +73,4 @@ To develop a predictive model that forecasts **home team match outcomes (win/dra
 
 ## 📸 Visuals
 
-Stay tuned for graphs and diagnostic plots showing:
-- Predicted vs actual outcomes  
-- Probability distributions for each class  
-- Accuracy vs betting odds comparison  
-
-> 🖼️ _[Insert visuals in the placeholders above or use `.md` image embedding syntax]_  
+See the "EPL Model Visual Deck" Tab  
