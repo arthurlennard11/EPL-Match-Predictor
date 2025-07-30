@@ -37,7 +37,7 @@ A machine learning model that uses team-level statistical features (such as xG a
    - Discovered that the base model never predicted draws, negatively impacting accuracy  
    - To resolve this, I implemented a **custom probability thresholding formula** to manually define the outcome boundaries based on predicted probabilities
 
-   ![Intervals](Visuals/CustomIntervals.png)
+   <img src="Visuals/CustomIntervals.png" alt="Intervals" width="50%">
 
 3. **Evaluation Metric**  
    - Compared model accuracy against the **most likely outcome implied by betting odds**
