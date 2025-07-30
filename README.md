@@ -41,6 +41,8 @@ A machine learning model that uses team-level statistical features (such as xG a
 
    <img src="Visuals/CustomIntervals.png" alt="Intervals" width="50%">
 
+---
+
 3. **Evaluation Metric**  
    - Compared model accuracy against the **most likely outcome implied by betting odds**
    - Success was defined as correctly predicting **a greater number of match outcomes** than the implied favorite from betting markets
