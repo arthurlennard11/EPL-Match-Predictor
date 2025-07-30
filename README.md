@@ -36,6 +36,7 @@ A machine learning model that uses team-level statistical features (such as xG a
    - Initially used an **ordinal regression model** to assign win/draw/loss probabilities to each home team  
    - Discovered that the base model never predicted draws, negatively impacting accuracy  
    - To resolve this, I implemented a **custom probability thresholding formula** to manually define the outcome boundaries based on predicted probabilities
+
 &nbsp;
 
    <img src="Visuals/CustomIntervals.png" alt="Intervals" width="50%">
@@ -52,6 +53,7 @@ A machine learning model that uses team-level statistical features (such as xG a
 
 - After refining the model's probability mapping, it **outperformed the betting odds** by approximately **1.5%** in overall prediction accuracy for home team outcomes  
 - This validated that statistical features like xG and cumulative trends can provide meaningful predictive power when properly modeled and time-aligned
+
 &nbsp;
 
    <img src="Visuals/Results.png" alt="Results" width="50%">
