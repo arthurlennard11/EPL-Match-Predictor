@@ -69,12 +69,12 @@ A machine learning model that uses team-level statistical features (such as xG a
 ## 🛠️ Tools & Languages
 
 - **Language**: R  
-- **Modeling**: `polr` package for ordinal regression  
+- **Modeling**: `polr`, `modelr` packagees for ordinal regression  
 - **Data Wrangling**: `dplyr`, `tidyr`  
-- **Visualization**: `ggplot2`
+- **Visualization**: `ggplot2`, `kableExtra`, `xtable`
 
 ---
 
-## 📸 Visuals
+## 📸 More Visuals
 
 See the "EPL Model Visual Deck" Tab  
