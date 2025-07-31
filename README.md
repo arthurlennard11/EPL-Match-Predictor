@@ -30,6 +30,7 @@ A machine learning model that uses team-level statistical features (such as xG a
 
 1. **Data Cleaning & Feature Engineering**  
    - Computed **cumulative mean values** for each team’s performance metrics before every match
+   - Also computed the cumulative mean values for stats accumulated against each team throughout the season  
    - Ensured predictors only used **information available prior to each matchday**
 
 2. **Modeling Approach**  
@@ -64,7 +65,6 @@ A machine learning model that uses team-level statistical features (such as xG a
 ## 📌 Future Work
 
 - Explore ensemble methods (e.g., XGBoost, Random Forests) for additional predictive strength  
-- Incorporate away team features to test model symmetry and robustness  
 - Experiment with other forms of ordinal classification and probability calibration  
 
 ---
