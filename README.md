@@ -1,4 +1,4 @@
-# ⚽️ Premier League Match Outcome Prediction (2019/20 Season)
+# ⚽️ Premier League Match Outcome Predictor (2019/20 Season)
 
 
 ## 🎯 Goal
