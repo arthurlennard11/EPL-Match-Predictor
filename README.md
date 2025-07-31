@@ -53,6 +53,7 @@ A machine learning model that uses team-level statistical features (such as xG a
 
 - After refining the model's probability mapping, it **outperformed the betting odds** by approximately **1.5%** in overall prediction accuracy for home team outcomes  
 - This validated that statistical features like xG and cumulative trends can provide meaningful predictive power when properly modeled and time-aligned
+- The model had a strikingly good hit rate on upset wins, a key component in beating the betting odds
 
 &nbsp;
 
